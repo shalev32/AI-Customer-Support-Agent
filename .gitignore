@@ -1,0 +1,23 @@
+__pycache__/
+chroma_db/
+product_data.csv
+venv/
+.env
+.pytest_cache/
+*.log
+partners.txt
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+*.egg
+dist/
+build/
+.mypy_cache/

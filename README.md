@@ -29,11 +29,13 @@ flowchart LR
 ## Features
 
 - **Semantic Product Search** — ChromaDB + `all-MiniLM-L6-v2` embeddings for natural language queries
-- **Structured Filtering** — Pandas-based filtering by price, brand, category, availability
-- **Customer Authentication** — Email/password verification before exposing private data
-- **Policy Enforcement** — Premier discounts (5%), recommendation limits, exact no-match responses
-- **Safe Calculator** — AST-based math evaluation (no `eval()`)
-- **Error Recovery** — Content filter errors are caught and fed back to the LLM to self-correct
+- **Structured Filtering** — Pandas-based filtering by price, brand, category, availability, and on-sale status (`Sale Price < List Price`)
+- **Privacy-Safe Customer Lookup** — `gift_lookup` mode returns only non-sensitive fields (name + interests), structurally preventing status/email leakage to third parties
+- **Customer Authentication** — Email/password verification required before exposing any private account data
+- **Policy Enforcement** — Premier discounts (5%), $2,000 premier threshold with calculator-verified math, max-3 suggestion limit, exact no-match response line
+- **Premier Discount + Budget Check** — Automatically applies 5% discount for premier customers before concluding "no match" on budget-limited queries
+- **Safe Calculator** — AST-based math evaluation (no `eval()`); handles oz→mL conversion and duration estimates with explicit formula output
+- **Error Recovery** — Content filter errors are caught and fed back to the LLM to self-correct; empty API responses trigger a graceful nudge rather than a crash
 
 ## Project Structure
 
@@ -102,12 +104,19 @@ Or run the full test suite:
 python test_agent.py
 ```
 
-## Design Decisions
+## Key Design Decisions
 
-- **Dual search strategy**: Semantic search (RAG) for natural language needs + structured Pandas filtering for hard constraints (price, brand). These can be combined in a single query.
-- **Safe arithmetic**: A whitelist-based AST evaluator handles all math — the LLM never does calculations "in its head".
-- **Lazy initialization**: ChromaDB index is built on first call and persisted, avoiding re-embedding on subsequent runs.
-- **mongomock**: Customer data uses an in-memory MongoDB mock — same pymongo API, zero infrastructure.
+| Decision | Rationale |
+|----------|-----------|
+| **Dual search strategy** | Semantic search (RAG) for natural language + Pandas filter for hard constraints (price, brand). Combined for queries with both types. |
+| **`list_price` in ChromaDB metadata** | Enables on-sale detection (`Sale Price < List Price`) directly in vector search results — no LLM deduction needed. |
+| **`gift_lookup` mode in `get_customer`** | Structurally limits returned fields to `{name, interests}` when looking up a friend's data, making it impossible to leak `status` or `email` to a third party. |
+| **Interests-based diversity algorithm** | System prompt instructs agent to run one `search_products` per interest category and pick exactly 1 product per category (max 3 total), preventing category imbalance. |
+| **Calculator-first arithmetic** | All math — including `oz → mL` conversion and duration estimates — is offloaded to a safe AST evaluator with explicit formula output. |
+| **Premier discount before "no match"** | For premier customers with a price limit, the agent applies the 5% discount before concluding no product fits, matching the expected policy behavior. |
+| **Safe arithmetic** | Whitelist-based AST evaluator handles all math — the LLM never does calculations "in its head". |
+| **Lazy initialization** | ChromaDB index is built on first call and persisted, avoiding re-embedding on subsequent runs. |
+| **mongomock** | Customer data uses an in-memory MongoDB mock — same pymongo API, zero infrastructure. |
 
 ## Technologies
 
